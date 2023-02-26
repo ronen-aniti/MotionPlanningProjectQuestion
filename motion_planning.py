@@ -1,3 +1,4 @@
+
 import argparse
 import time
 import msgpack
@@ -9,9 +10,9 @@ import numpy as np
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
-from udacidrone.frame_utils import global_to_local
+#from udacidrone.frame_utils import global_to_local
 from gridmap import Map, GridMap
-from reference_frame import global_to_local
+from reference_frame import global_to_local, local_to_global
 
 
 class States(Enum):
@@ -80,10 +81,9 @@ class MotionPlanning(Drone):
         self.take_control()
 
     def takeoff_transition(self):
+        self.flight_state == States.TAKEOFF
         print("takeoff transition")
-        print("taking off to {0}m.".format(self.target_position[2]))
         self.takeoff(self.target_position[2])
-        self.flight_state = States.TAKEOFF
 
     def waypoint_transition(self):
         self.flight_state = States.WAYPOINT
@@ -142,27 +142,31 @@ class MotionPlanning(Drone):
         global_home = self.set_home_position(lon0, lat0, 0)
 
         # TODO: retrieve current global position
-        # current_global_position = self.global_position
+        current_global_position = (self._longitude, self._latitude, self._altitude)
  
-        # TODO: convert to current local position using global_to_local()\
-        current_local_position = global_to_local(self.global_position, self.global_home)
-        print('global home {0}, position {1}, local position {2}'.format(self.global_home, self.global_position,
+        # TODO: convert to current local position using global_to_local()
+        current_local_position = list(global_to_local(current_global_position, self.global_home))
+        print('global home {0}, position {1}, local position {2}'.format(self.global_home, current_global_position,
                                                                          self.local_position))
         
         # TODO: convert start position to current position rather than map center
-        goal_local_position = [self.local_position[0]+50, self.local_position[1]-5, TARGET_ALTITUDE]
-
-        grid_10 = GridMap('colliders.csv', '2d Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local_position, goal_local_position)
-
-        waypoints = grid_10.search_grid()
+        start_local_position = [current_local_position[0]+10, current_local_position[1]+10, TARGET_ALTITUDE]
 
         # TODO: adapt to set goal as latitude / longitude position and convert
+        goal_latitude = 37.793837
+        goal_longitude = -122.397745
+        goal_altitude = TARGET_ALTITUDE
+        goal_global_position = [goal_longitude, goal_latitude, TARGET_ALTITUDE]
+        goal_local_position = global_to_local(goal_global_position, self.global_home)
+
+
 
         # TODO (if you're feeling ambitious): Try a different approach altogether!
+        grid_10 = GridMap('colliders.csv', '2d Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, start_local_position, goal_local_position)
 
+        waypoints = grid_10.search_grid()
        
         # Set self.waypoints
-       
         self.waypoints = waypoints
         # TODO: send waypoints to sim (this is just for visualization of waypoints)
         self.send_waypoints()
